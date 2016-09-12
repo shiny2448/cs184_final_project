@@ -1,0 +1,191 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+<style>  
+    div.padded {  
+      padding-top: 0px;  
+      padding-right: 100px;  
+      padding-bottom: 0.25in;  
+      padding-left: 100px;  
+    }  
+  </style> 
+<title>Yong-Chan Shin  |  CS 184</title>
+<meta http-equiv="content-type" content="text/html; charset=utf-8" />
+<link rel="stylesheet" type="text/css" href="style.css" media="screen" />
+</head>
+<body>
+<br />
+
+<h1 align="middle">Final Project: Flocking Simulation</h1>
+<h2 align="middle">Yong-Chan Shin</h2>
+<div class="padded">
+
+<h2 align="middle">Overview:</h2>
+<p> The project simulates flocking behavior of bird-oid objects(boids), which is a coordinated animal motion such as bird and fish swarms. This project controls the movements of each boid in flock not by directly changing the velocity of the boid but by computing the force applied to the boid firstly and applying it to the velocity. There are three types of forces which should be calculated: Separtion, Alignment, and Cohesion forces. After computing the three forces, the velocity will be determined, and the next location of the boid will be displayed as the output. Additionally, target avoidance and goal seeking algorithm is also implemented. </p>
+
+<h2 align="middle">Technical Approach</h2>
+<p> The flocking algorithm is highly based on simple physics, especially Newton's law of force. After the main three forces are computed, the acceleration comes out from formula F=ma, where F is force, m is mass, and a is acceleration. To create natural movement as a flock, the algorithm assume that every boid's mass is strictly one, so algorithm assumes that F=a. However, this can be easily modified by defining a variable of mass and dividing it to the forces to get accerlation if user wants to vary the values of mass. Now, let's see what three forces and how each is computed.</p>
+
+<h3 align="middle">Separation</h3>
+        <div align="center">
+            <table style="width=100%">
+                <tr>
+                    <td align="middle">
+                    <img src="image/separation.gif" width="360px" />
+                    <figcaption align="middle">Fig1: Separation force</figcaption>
+                </tr>
+            </table>
+        </div>
+<p> In short, separation is a steering force to avoid overly crowding boids which are in the specific range. To compute this force, the algorithm walks through all the boids to check if any boid is in the range. This condition is determined by computing the distance between the currrent boid's location and the other boid's location and see if the distance is less than the desired separation distance. If the condition is met, the algorithm subtract the neighboring boid's (boids in the defined range) position from the current boid's position to get the direciton of the separation force. This vector beceoms the direction because the neighboring boid wants to push the current boid so that the distance is larger than separation range. Create a unit vector with the computed direction and do this for all neighboring boids and average the vector. The final vector is the separation force to return.</p>
+<p> Separation algorithm:<br>
+	.....Input: current boid, list of all the boids, desired separation range<br>
+	.....Output: separation force<br>
+	sep = (0,0)<br>
+	count = 0<br>
+	for every other boid:<br>
+	.....d = distance between current boid's location and the other boid's location<br>
+	.....if d is between zero and desired separtion:<br>
+	..........diff = (current location) - (other's location)<br>
+	..........diff.normalize<br>
+	..........diff = diff/d<br>
+	..........sep += diff<br>
+	..........count++<br>
+	if count > 0:<br>
+	.....sep /= count;<br>
+	limit the force with defined max force<br>
+	return sep<br>
+</p>
+<h3 align="middle">Alignment</h3>
+        <div align="center">
+            <table style="width=100%">
+                <tr>
+                    <td align="middle">
+                    <img src="image/alignment.gif" width="360px" />
+                    <figcaption align="middle">Fig1: Alignment force</figcaption>
+                </tr>
+            </table>
+        </div>
+<p> In short, alignment is a steering force towards the average of the direction that the neighboring boids are heading. This alignment force gives a motion that the group of boids are moving as a unit because they have almost the same direction of velocity. To compute this force, the algorithm walks through all the boids and compute the distance between the position of current boid and that of another boid. If the distance is less than desired distance(distance of range), which means if the other boid is in the range of some fixed neighboring distance, the algorithm simply add the velocity. After the iteration, get the average of the summed velocities, and subtract the original velocity of the current boid. The algorithm does not directly returns the aveaged velocity because if it does not subtract the original velocity, the return value is velocity, not accerlation. Since definition of acceleration is difference between the velocity within a specific time, we have to subtract it, and we do not divide by time because we assume that the time passed is the unit value. Also, adding all the neighboring boids' velocity and average is to have the boids have a uniformed direction. </p>
+<p> Alignment algorithm:<br>
+	.....Input: current boid, list of all the boids, desired separation range<br>
+	.....Output: alignment force<br>
+	ali = (0,0)<br>
+	count = 0<br>
+	for every other boid:<br>
+	.....d = distance between current boid's location and the other boid's location<br>
+	.....if d is between zero and desired separtion:<br>
+	..........ali += the other's velocity<br>
+	..........count++<br>
+	if count > 0:<br>
+	.....ali /= count<br>
+	ali -= current boid's velocity
+	limit the force with defined max force <br>
+	return ali<br>
+</p>
+<h3 align="middle">Cohesion</h3>
+        <div align="center">
+            <table style="width=100%">
+                <tr>
+                    <td align="middle">
+                    <img src="image/cohesion.gif" width="360px" />
+                    <figcaption align="middle">Fig1: Cohesion force</figcaption>
+                </tr>
+            </table>
+        </div>
+<p> In short, cohesion is a steering force to move towards the average position of neighboring flockmates. This force prevents the boids from mindlessly separating and not forming a "flock". To compute this force, iterate through all the other boids and determine if the other boid is in the current boid's range as neighbor. Sum up all the location vectors which satisfies the condition, and average it after the iteration. Then, run goal-seeking algorithm which returns the force toward the target position. Since we want the current boid to go to the target position, get the desired velocity's direction of the force by subtracting the current boid's position from the target position. Then, subtract current boid's velocity from the desired velocity to get the acceleration. Lastly, return the acquired force. </p>
+<p> Cohesion algorithm:<br>
+	.....Input: current boid, list of all the boids, desired separation range<br>
+	.....Output: alignment force<br>
+	coh = (0,0)<br>
+	count = 0<br>
+	for every other boid:<br>
+	.....d = distance between current boid's location and the other boid's location<br>
+	.....if d is between zero and desired separtion:<br>
+	..........coh += the other's location<br>
+	..........count++<br>
+	if count > 0:<br>
+	.....coh /= count<br>
+	return seek(coh)<br>
+<p> Seek algorithm:<br>
+	.....Input: target position<br>
+	.....Output: force to get the boid move to the target position<br>
+	desired = target - (current boid's location)<br>
+	desired.normalize<br>
+	desired *= max velocity<br>
+	steer = desired - (current boid's velocity)<br>
+	steer.limit(max force)<br>
+	return steer<br>
+</p>
+
+<p> The difficult part of this project was the implementation of goal-seeking algorithm and the avoidance algorithm. The codings of the two algorithms are very simple; for goal-seeking algorithm, simply iterate through all the boids and add the return value of seek algorithm with target as mouse position to each boid's acceleration. For avoidance algorithm, do the same thing but subtract the return value of the seek algorithm. The coding was simple, but it was relatively hard to get to the idea. </p>
+<p> The lesson was that implementation of natural law of physics results in an amazing visual effect. Also, as implementation of several different options continues, I found that this algorithm can also be used as fluid simulation because if we consider each boid as particle and implement the gravity, the motion will be similar. This can be firstly checked by the bounding edge mode video which gives fluid-like motion without gravity (or fluid motion that is seen from the sky). 3D simulation is also possible. Overall, I found that this simulation can be extended to a number of projects based on the Newtonian physics. Also, in terms of running time, Criag Reynold mentioned that the algorithm can have O(n) runtime instead of current O(n^2) through spatial data structure which allows the boids to be kept sorted by their location. This is also a further extension that I should try later. </p>
+<p> Reference: Boids by Craig Reynolds: http://www.red3d.com/cwr/boids/ <br></p>
+<h2 align = middle> Demo and Result <h2>
+<p>Default settings: Multiply separation force by 1.5, alignment force by 1.0, cohesion force by 1.0. Loop if boid reaches the edge of the screen. </p>
+
+<h3 align="middle">Default Demo</h3>
+	<div align="center">
+        <video controls="controls" width="640" height="360" src="videos/demo_default.mp4" type = "video/mp4">
+        </video>
+        <figcaption align="middle">Video1: loop if boid reaches the edge.</figcaption>
+    </div>
+<h3 align="middle">Bounce Mode Demo</h3>
+	<div align="center">
+        <video controls="controls" width="640" height="360" src="videos/demo_bounce_mode.mp4" type = "video/mp4">
+        </video>
+        <figcaption align="middle">Video2: If boid reaches the edge, bounce.</figcaption>
+    </div>
+<h3 align="middle">Avoid Mode Demo</h3>
+	<div align="center">
+        <video controls="controls" width="640" height="360" src="videos/demo_avoid_mode.mp4" type = "video/mp4">
+        </video>
+        <figcaption align="middle">Video3: If boid is near the moving mouse, spread from the mouse point.</figcaption>
+    </div>
+<h3 align="middle">Arrive Mode Demo</h3>
+	<div align="center">
+        <video controls="controls" width="640" height="360" src="videos/demo_arrive_mode.mp4" type = "video/mp4">
+        </video>
+        <figcaption align="middle">Video4: If mouse is moved, all the boids are gathered towards the mouse position.</figcaption>
+    </div>
+<h3 align="middle">No Separation Force Demo</h3>
+	<div align="center">
+        <video controls="controls" width="640" height="360" src="videos/demo_no_sepForce.mp4" type = "video/mp4">
+        </video>
+        <figcaption align="middle">Video5: Multiply separation force by zero. </figcaption>
+    </div>
+<h3 align="middle">No Alignment Force Demo</h3>
+	<div align="center">
+        <video controls="controls" width="640" height="360" src="videos/demo_no_aliForce.mp4" type = "video/mp4">
+        </video>
+        <figcaption align="middle">Video6: Multiply alignment force by zero. </figcaption>
+    </div>
+<h3 align="middle">No Cohesion Force Demo</h3>
+	<div align="center">
+        <video controls="controls" width="640" height="360" src="videos/demo_no_cohForce.mp4" type = "video/mp4">
+        </video>
+        <figcaption align="middle">Video7: Multiply cohesion force by zero. </figcaption>
+    </div>
+</div>
+<h3 align="middle">Double Separation Force Demo</h3>
+	<div align="center">
+        <video controls="controls" width="640" height="360" src="videos/demo_double_sepForce.mp4" type = "video/mp4">
+        </video>
+        <figcaption align="middle">Video8: Double separation force from default setting. </figcaption>
+    </div>
+</div>
+<h3 align="middle">Double Cohesion Force Demo</h3>
+	<div align="center">
+        <video controls="controls" width="640" height="360" src="videos/demo_double_aliForce.mp4" type = "video/mp4">
+        </video>
+        <figcaption align="middle">Video9: Double alignment force from default setting. </figcaption>
+    </div>
+</div>
+<h3 align="middle">Double Cohesion Force Demo</h3>
+	<div align="center">
+        <video controls="controls" width="640" height="360" src="videos/demo_double_cohForce.mp4" type = "video/mp4">
+        </video>
+        <figcaption align="middle">Video10: Double cohesion force from default setting. </figcaption>
+    </div>
+</div>
+</body>
+</html>
